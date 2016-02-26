@@ -10,6 +10,17 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+std::string getRandomString() {
+ srand((unsigned)time(NULL));
+ char random[27];
+ char material[] = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+ int i;
+ for(i=0;i<26;i++){
+  random[i] = material[rand()%(sizeof(material)-1)];
+ }
+ random[i] = 0;
+ return std::string(random);
+}
 //--------------------------------------------------------------
 //--------------------------------------------------------------
 int setNonBlocking(int fd){
@@ -81,7 +92,7 @@ void ofxVideoDataWriterThread::threadedFunction(){
             {
                 errno = 0;
                 
-                int b_written = ::write(fd, ((char *)frame->getData())+b_offset, b_remaining);
+                int b_written = ::write(fd, ((char *)frame->getPixels())+b_offset, b_remaining);
                 
                 if(b_written > 0){
                     b_remaining -= b_written;
@@ -229,9 +240,10 @@ bool ofxVideoRecorder::setup(string fname, int w, int h, float fps, int sampleRa
     stringstream outputSettings;
     outputSettings
     << " -vcodec " << videoCodec
-    << " -b " << videoBitrate
-    << " -acodec " << audioCodec
-    << " -ab " << audioBitrate
+    << " -vb " << videoBitrate
+    << " -preset slow -profile:v main -level 3.1 -pix_fmt yuv420p "
+//    << " -acodec " << audioCodec
+//    << " -ab " << audioBitrate
     << " " << absFilePath;
 
     return setupCustomOutput(w, h, fps, sampleRate, channels, outputSettings.str(), sysClockSync, silent);
@@ -274,7 +286,8 @@ bool ofxVideoRecorder::setupCustomOutput(int w, int h, float fps, int sampleRate
         frameRate = fps;
 
         // recording video, create a FIFO pipe
-        videoPipePath = ofFilePath::getAbsolutePath("ofxvrpipe" + ofToString(pipeNumber));
+        videoPipePath = ofFilePath::getAbsolutePath("/tmp/pipe/ofxvrpipe" + getRandomString() + ofToString(pipeNumber));
+        std::cout << videoPipePath << std::endl;
         if(!ofFile::doesFileExist(videoPipePath)){
             string cmd = "bash --login -c 'mkfifo " + videoPipePath + "'";
             system(cmd.c_str());
@@ -311,7 +324,9 @@ bool ofxVideoRecorder::setupCustomOutput(int w, int h, float fps, int sampleRate
     else { // no video stream
         cmd << " -vn";
     }
-    cmd << " "+ outputString +"' &";
+    cmd << " "+ outputString +"' > ~/ffmpegout.log 2> ~/ffmpegerror.log &";
+    std::cout << "---------------------" << std::endl;
+    std::cout << cmd.str() << std::endl;
 
     //cerr << cmd.str();
 
